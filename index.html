@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>แสงเล็ก ๆ ถึงคุณว่าที่พยาบาล</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Silkscreen&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0b1226;
+      --bg-mid: #131c3a;
+      --panel: #182246;
+      --line: #2a355e;
+      --ink: #e7ecfb;
+      --ink-dim: #93a0c9;
+      --gold: #ffd36e;
+      --mint: #7ee8c7;
+      --rose: #ff8fa3;
+      --violet: #b9a6ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: linear-gradient(180deg, var(--bg-deep), var(--bg-mid));
+      color: var(--ink);
+      font-family: 'Prompt', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ---------- ambient background dust ---------- */
+    .scene {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .dust {
+      position: absolute;
+      bottom: -10px;
+      width: 4px;
+      height: 4px;
+      border-radius: 1px;
+      opacity: 0;
+      animation-name: floatUp;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+    }
+
+    @keyframes floatUp {
+      0% {
+        transform: translate(0, 0);
+        opacity: 0;
+      }
+
+      12% {
+        opacity: .65;
+      }
+
+      88% {
+        opacity: .5;
+      }
+
+      100% {
+        transform: translate(var(--sway), -110vh);
+        opacity: 0;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .dust {
+        animation: none !important;
+        display: none;
+      }
+    }
+
+    /* ---------- layout ---------- */
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 30px;
+      padding: 36px 20px;
+    }
+
+    .mark {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 420px;
+    }
+
+    .mark-icon {
+      width: 26px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+
+    .mark-text {
+      margin: 0;
+      font-size: .82rem;
+      line-height: 1.4;
+      color: var(--ink-dim);
+    }
+
+    .message-area {
+      width: min(94vw, 720px);
+      height: clamp(200px, 36vw, 270px);
+      position: relative;
+    }
+
+    #pixelCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: pointer;
+      border-radius: 2px;
+    }
+
+    #pixelCanvas:focus-visible {
+      outline: 3px dashed var(--mint);
+      outline-offset: 8px;
+    }
+
+    .tap-hint {
+      margin: 14px 0 0;
+      text-align: center;
+      font-size: .78rem;
+      color: var(--ink-dim);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .pbtn {
+      width: 46px;
+      height: 42px;
+      background: var(--panel);
+      border: 3px solid var(--line);
+      color: var(--gold);
+      font-family: 'Silkscreen', monospace;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 #000;
+      transition: transform .05s ease, box-shadow .05s ease, border-color .15s ease, color .15s ease;
+    }
+
+    .pbtn:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+    }
+
+    .pbtn.active {
+      border-color: var(--mint);
+      color: var(--mint);
+      box-shadow: 0 0 10px rgba(126, 232, 199, 0.35), 4px 4px 0 #000;
+    }
+
+    .pbtn:active {
+      transform: translate(4px, 4px);
+      box-shadow: 0 0 0 #000;
+    }
+
+    .pbtn:focus-visible {
+      outline: 3px dashed var(--mint);
+      outline-offset: 3px;
+    }
+
+    .progress {
+      display: flex;
+      gap: 7px;
+      justify-content: center;
+    }
+
+    .progress span {
+      width: 8px;
+      height: 8px;
+      background: var(--line);
+      display: block;
+    }
+
+    .progress span.active {
+      background: var(--gold);
+      box-shadow: 0 0 6px var(--gold);
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="scene" id="scene" aria-hidden="true"></div>
+
+  <div class="stage">
+
+    <div class="mark">
+      <div class="mark-icon" id="markIcon"></div>
+      <p class="mark-text">สำหรับคนที่ตื่นดูแลคนอื่น ในเวลาที่คนอื่นหลับ</p>
+    </div>
+
+    <main class="message-area">
+      <canvas id="pixelCanvas" tabindex="0" role="img" aria-label="ข้อความให้กำลังใจแบบพิกเซล"></canvas>
+    </main>
+    <p class="tap-hint">แตะเพื่อข้ามอนิเมชัน · กด ♫ เพื่อเปิด/ปิดดนตรีคลอ</p>
+
+    <div class="controls">
+      <button class="pbtn" id="prevBtn" aria-label="ข้อความก่อนหน้า">‹</button>
+      <button class="pbtn" id="playBtn" aria-label="เล่นหรือหยุดชั่วคราว">❚❚</button>
+      <button class="pbtn" id="nextBtn" aria-label="ข้อความถัดไป">›</button>
+      <button class="pbtn" id="musicBtn" aria-label="เปิดหรือปิดเสียงดนตรีคลอ" title="เปิด/ปิดดนตรีคลอ">♫</button>
+    </div>
+    <div class="progress" id="progress"></div>
+
+    <div id="srLive" class="visually-hidden" aria-live="polite"></div>
+  </div>
+
+  <script>
+    (function () {
+
+      // ============================================================
+      // ✏️ แก้ไขข้อความให้กำลังใจของคุณตรงนี้ได้เลย
+      //    - ใส่ กี่ข้อความ ก็ได้ เพิ่ม/ลบ/แก้ในลิสต์ด้านล่าง
+      //    - ถ้าข้อความยาว ให้เว้นวรรคตรงจุดที่อยากให้ตัดขึ้นบรรทัดใหม่
+      //      (ภาษาไทยไม่มีช่องว่างระหว่างคำ ระบบจะตัดบรรทัดตรงช่องว่างที่ใส่ไว้เท่านั้น)
+      // ============================================================
+      const messages = [
+        "เรียนพยาบาลทั้งหนักและเหนื่อยมาก",
+        "ต้องเจอกับการอ่านหนังสือสอบและการขึ้นวอร์ดที่กดดัน",
+        "ในวันที่หมดแรง ขอให้รู้ว่าสิ่งที่ทำอยู่มีความหมาย",
+        "ทุกความตั้งใจกำลังจะกลายเป็นที่พึ่งให้คนไข้ในอนาคต",
+        "แต่อย่าลืมหาเวลาพักผ่อนและดูแลสุขภาพตัวเองด้วย",
+        "กินข้าวให้ตรงเวลาและนอนหลับในเต็มอิ่ม",
+        "เชื่อมั่นในศักยภาพของตัวเองเข้าไว้",
+        "เธอเก่งมากแล้ว และจะต้องผ่านช่วงเวลานี้ไปได้แน่นอน"
+      ];
+
+      const PALETTE = ['#ffd36e', '#7ee8c7', '#ff8fa3', '#b9a6ff'];
+
+      // ---------- tiny pixel-art heart icon ----------
+      const HEART_BITMAP = [
+        [0, 1, 1, 0, 1, 1, 0],
+        [1, 1, 1, 1, 1, 1, 1],
+        [1, 1, 1, 1, 1, 1, 1],
+        [0, 1, 1, 1, 1, 1, 0],
+        [0, 0, 1, 1, 1, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0]
+      ];
+      function renderPixelIcon(el, bitmap, color) {
+        const rows = bitmap.length, cols = bitmap[0].length;
+        el.style.display = 'grid';
+        el.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+        el.style.gridTemplateRows = 'repeat(' + rows + ', 1fr)';
+        el.style.gap = '1px';
+        bitmap.forEach(function (row) {
+          row.forEach(function (v) {
+            const cell = document.createElement('div');
+            cell.style.background = v ? color : 'transparent';
+            el.appendChild(cell);
+          });
+        });
+      }
+      renderPixelIcon(document.getElementById('markIcon'), HEART_BITMAP, 'var(--rose)');
+
+      // ---------- ambient floating dust ----------
+      const scene = document.getElementById('scene');
+      const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if (!reduceMotionQuery.matches) {
+        const DUST_COUNT = 26;
+        for (let i = 0; i < DUST_COUNT; i++) {
+          const d = document.createElement('div');
+          d.className = 'dust';
+          const left = Math.random() * 100;
+          const dur = 9 + Math.random() * 12;
+          const delay = -Math.random() * 20;
+          const sway = (Math.random() * 60 - 30).toFixed(0) + 'px';
+          const size = (3 + Math.random() * 3).toFixed(1) + 'px';
+          d.style.left = left + 'vw';
+          d.style.width = size;
+          d.style.height = size;
+          d.style.setProperty('--sway', sway);
+          d.style.animationDuration = dur + 's';
+          d.style.animationDelay = delay + 's';
+          d.style.background = PALETTE[i % PALETTE.length];
+          scene.appendChild(d);
+        }
+      }
+
+      // ---------- text wrapping helpers ----------
+      // ---------- text wrapping helpers with Thai word boundary support ----------
+      function wrapThaiText(ctx, text, maxWidth) {
+        const parts = text.split(' ');
+        const lines = [];
+        let current = '';
+
+        function getSubwords(str) {
+          if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+            const seg = new Intl.Segmenter('th', { granularity: 'word' });
+            return Array.from(seg.segment(str)).map(function (s) { return s.segment; });
+          }
+          return Array.from(str);
+        }
+
+        for (const part of parts) {
+          const test = current ? current + ' ' + part : part;
+          if (ctx.measureText(test).width <= maxWidth) {
+            current = test;
+          } else {
+            if (current) {
+              lines.push(current);
+              current = '';
+            }
+            if (ctx.measureText(part).width > maxWidth) {
+              const subwords = getSubwords(part);
+              let subCurrent = '';
+              for (const sw of subwords) {
+                const subTest = subCurrent + sw;
+                if (ctx.measureText(subTest).width > maxWidth && subCurrent) {
+                  lines.push(subCurrent);
+                  subCurrent = sw;
+                } else {
+                  subCurrent = subTest;
+                }
+              }
+              if (subCurrent) current = subCurrent;
+            } else {
+              current = part;
+            }
+          }
+        }
+        if (current) lines.push(current);
+        return lines;
+      }
+
+      function fitText(ctx, text, maxWidth, maxHeight) {
+        let fontSize = 76;
+        const minFontSize = 20;
+        let lines = [text];
+        let lineHeight = fontSize * 1.45;
+        while (fontSize >= minFontSize) {
+          ctx.font = "500 " + fontSize + "px 'Prompt', sans-serif";
+          ctx.letterSpacing = Math.max(1, Math.round(fontSize * 0.05)) + 'px';
+          const candidate = wrapThaiText(ctx, text, maxWidth);
+          lineHeight = fontSize * 1.45;
+          const totalHeight = lineHeight * candidate.length;
+          const maxLineWidth = Math.max.apply(null, candidate.map(function (l) { return ctx.measureText(l).width; }));
+          if (totalHeight <= maxHeight && maxLineWidth <= maxWidth) {
+            lines = candidate;
+            return { fontSize: fontSize, lines: lines, lineHeight: lineHeight };
+          }
+          fontSize -= 2;
+        }
+        ctx.font = "500 " + minFontSize + "px 'Prompt', sans-serif";
+        ctx.letterSpacing = Math.max(1, Math.round(minFontSize * 0.05)) + 'px';
+        lines = wrapThaiText(ctx, text, maxWidth);
+        return { fontSize: minFontSize, lines: lines, lineHeight: minFontSize * 1.45 };
+      }
+
+      // ---------- build the dot grid for a message ----------
+      const pixelCanvas = document.getElementById('pixelCanvas');
+
+      function buildDotGrid(message) {
+        const dpr = window.devicePixelRatio || 1;
+        const cssW = pixelCanvas.clientWidth;
+        const cssH = pixelCanvas.clientHeight;
+        const W = Math.max(1, Math.round(cssW * dpr));
+        const H = Math.max(1, Math.round(cssH * dpr));
+        pixelCanvas.width = W;
+        pixelCanvas.height = H;
+
+        const off = document.createElement('canvas');
+        off.width = W; off.height = H;
+        const octx = off.getContext('2d');
+        octx.fillStyle = '#000';
+        octx.fillRect(0, 0, W, H);
+        octx.fillStyle = '#fff';
+        octx.textBaseline = 'alphabetic';
+
+        const padX = W * 0.08;
+        const padY = H * 0.14;
+        const maxWidth = W - padX * 2;
+        const maxHeight = H - padY * 2;
+
+        const fit = fitText(octx, message, maxWidth, maxHeight);
+        octx.font = "500 " + fit.fontSize + "px 'Prompt', sans-serif";
+        octx.letterSpacing = Math.max(1, Math.round(fit.fontSize * 0.05)) + 'px';
+        octx.textAlign = 'center';
+        const totalHeight = fit.lineHeight * fit.lines.length;
+        const startY = (H - totalHeight) / 2 + fit.fontSize * 0.82;
+        fit.lines.forEach(function (line, i) {
+          octx.fillText(line, W / 2, startY + i * fit.lineHeight);
+        });
+
+        const img = octx.getImageData(0, 0, W, H).data;
+        // Cell size tied to font size to balance retro pixel look with Thai diacritic clarity
+        const cell = Math.max(2, Math.round(fit.fontSize / 13));
+        const cols = Math.ceil(W / cell);
+        const rows = Math.ceil(H / cell);
+        const onCells = [];
+        // Threshold set higher so anti-aliasing between consonants and upper/lower vowels
+        // does not falsely turn on the gap cells between them.
+        for (let ry = 0; ry < rows; ry++) {
+          const y0 = ry * cell, y1 = Math.min(H, y0 + cell);
+          for (let rx = 0; rx < cols; rx++) {
+            const x0 = rx * cell, x1 = Math.min(W, x0 + cell);
+            let sum = 0, n = 0;
+            for (let py = y0; py < y1; py++) {
+              const rowBase = py * W;
+              for (let px = x0; px < x1; px++) {
+                const idx = (rowBase + px) * 4;
+                const val = img[idx] * (img[idx + 3] / 255);
+                sum += val > 45 ? val : 0;
+                n++;
+              }
+            }
+            if (n && (sum / n) > 55) {
+              onCells.push({ x: x0 + (x1 - x0) / 2, y: y0 + (y1 - y0) / 2 });
+            }
+          }
+        }
+        return { onCells: onCells, cell: cell, W: W, H: H };
+      }
+
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+        }
+        return arr;
+      }
+
+      // ---------- animation state machine ----------
+      let currentIndex = 0;
+      let autoplay = true;
+      let rafId = null;
+      let state = null;
+      const ctx2d = pixelCanvas.getContext('2d');
+      const srLive = document.getElementById('srLive');
+      const progressEl = document.getElementById('progress');
+      const playBtn = document.getElementById('playBtn');
+
+      messages.forEach(function () {
+        const dot = document.createElement('span');
+        progressEl.appendChild(dot);
+      });
+      function updateProgress() {
+        Array.prototype.forEach.call(progressEl.children, function (el, i) {
+          el.classList.toggle('active', i === currentIndex);
+        });
+      }
+
+      function drawDots(dots, count, alpha) {
+        ctx2d.clearRect(0, 0, pixelCanvas.width, pixelCanvas.height);
+        ctx2d.save();
+        ctx2d.globalAlpha = alpha;
+        ctx2d.shadowBlur = 2;
+        for (let i = 0; i < count; i++) {
+          const d = dots[i];
+          ctx2d.shadowColor = d.color;
+          ctx2d.fillStyle = d.color;
+          ctx2d.fillRect(d.x - d.size / 2, d.y - d.size / 2, d.size, d.size);
+        }
+        ctx2d.restore();
+      }
+
+      function startMessage(index, opts) {
+        opts = opts || {};
+        if (rafId) cancelAnimationFrame(rafId);
+        currentIndex = ((index % messages.length) + messages.length) % messages.length;
+        const text = messages[currentIndex];
+        const grid = buildDotGrid(text);
+        const dots = grid.onCells.map(function (c) {
+          return {
+            x: c.x, y: c.y,
+            color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+            size: Math.max(1.5, grid.cell - 0.7)
+          };
+        });
+        shuffle(dots);
+        const count = dots.length;
+        const instant = opts.instant || reduceMotionQuery.matches;
+        const revealDurationMs = instant ? 0 : Math.min(2600, Math.max(900, count * 2.2));
+        const holdDurationMs = Math.min(7000, Math.max(2400, text.length * 90));
+        const fadeDurationMs = reduceMotionQuery.matches ? 0 : 550;
+
+        state = {
+          dots: dots,
+          count: count,
+          revealedCount: instant ? count : 0,
+          phase: instant ? 'hold' : 'revealing',
+          phaseStart: performance.now(),
+          revealDurationMs: revealDurationMs,
+          holdDurationMs: holdDurationMs,
+          fadeDurationMs: fadeDurationMs
+        };
+
+        srLive.textContent = text;
+        updateProgress();
+        if (state.phase === 'hold') {
+          // Already fully revealed (instant/reduced-motion case) - paint it right away
+          // rather than waiting for the idle hold branch below to skip drawing.
+          drawDots(state.dots, state.count, 1);
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      function tick(now) {
+        const s = state;
+        const elapsed = now - s.phaseStart;
+
+        if (s.phase === 'revealing') {
+          const progress = s.revealDurationMs === 0 ? 1 : Math.min(1, elapsed / s.revealDurationMs);
+          s.revealedCount = Math.floor(progress * s.count);
+          drawDots(s.dots, s.revealedCount, 1);
+          if (progress >= 1) {
+            s.phase = 'hold'; s.phaseStart = now;
+            drawDots(s.dots, s.count, 1); // one final full-resolution paint
+          }
+        } else if (s.phase === 'hold') {
+          // Nothing changes visually during hold, so skip redrawing every frame -
+          // at higher dot counts that would waste a lot of CPU/GPU for no benefit.
+          if (autoplay && elapsed >= s.holdDurationMs) {
+            s.phase = 'fade'; s.phaseStart = now;
+          }
+        } else if (s.phase === 'fade') {
+          const progress = s.fadeDurationMs === 0 ? 1 : Math.min(1, elapsed / s.fadeDurationMs);
+          drawDots(s.dots, s.count, 1 - progress);
+          if (progress >= 1) {
+            startMessage(currentIndex + 1);
+            return;
+          }
+        }
+        rafId = requestAnimationFrame(tick);
+      }
+
+      // ---------- interaction ----------
+      pixelCanvas.addEventListener('click', function () {
+        if (!state) return;
+        if (state.phase === 'revealing') {
+          state.revealedCount = state.count;
+          state.phase = 'hold';
+          state.phaseStart = performance.now();
+          drawDots(state.dots, state.count, 1);
+        } else {
+          startMessage(currentIndex + 1);
+        }
+      });
+      pixelCanvas.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          pixelCanvas.dispatchEvent(new MouseEvent('click'));
+        } else if (e.key === 'ArrowRight') {
+          startMessage(currentIndex + 1);
+        } else if (e.key === 'ArrowLeft') {
+          startMessage(currentIndex - 1);
+        }
+      });
+
+      document.getElementById('nextBtn').addEventListener('click', function () { startMessage(currentIndex + 1); });
+      document.getElementById('prevBtn').addEventListener('click', function () { startMessage(currentIndex - 1); });
+      document.getElementById('playBtn').addEventListener('click', function () {
+        autoplay = !autoplay;
+        playBtn.textContent = autoplay ? '❚❚' : '►';
+        playBtn.setAttribute('aria-label', autoplay ? 'หยุดชั่วคราว' : 'เล่นต่อ');
+        if (autoplay && state && state.phase === 'hold') {
+          state.phaseStart = performance.now();
+        }
+      });
+
+      let resizeTimer = null;
+      window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+          startMessage(currentIndex, { instant: true });
+        }, 200);
+      });
+
+      // ---------- ambient background music (Web Audio API) ----------
+      let audioCtx = null;
+      let masterGain = null;
+      let isMusicEnabled = false;
+      let musicLoopTimeout = null;
+      const musicBtn = document.getElementById('musicBtn');
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtxClass) {
+            audioCtx = new AudioCtxClass();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            masterGain.connect(audioCtx.destination);
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      // Soft warm music box / chime
+      function triggerTone(freq, time, dur, vol) {
+        if (!audioCtx || !masterGain) return;
+        const osc = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        const f = audioCtx.createBiquadFilter();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time);
+
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(freq * 2, time);
+
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(1200, time);
+        f.frequency.exponentialRampToValueAtTime(500, time + dur);
+
+        const v = vol || 0.12;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(v, time + 0.025);
+        g.gain.exponentialRampToValueAtTime(v * 0.35, time + dur * 0.35);
+        g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+        osc.connect(f);
+        osc2.connect(f);
+        f.connect(g);
+        g.connect(masterGain);
+
+        osc.start(time);
+        osc2.start(time);
+        osc.stop(time + dur);
+        osc2.stop(time + dur);
+      }
+
+      // Soft warm bass pad note
+      function triggerBass(freq, time, dur, vol) {
+        if (!audioCtx || !masterGain) return;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        const f = audioCtx.createBiquadFilter();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time);
+
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(320, time);
+
+        const v = vol || 0.08;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(v, time + 0.5);
+        g.gain.setValueAtTime(v, time + dur - 0.5);
+        g.gain.linearRampToValueAtTime(0.0001, time + dur);
+
+        osc.connect(f);
+        f.connect(g);
+        g.connect(masterGain);
+
+        osc.start(time);
+        osc.stop(time + dur);
+      }
+
+      // Musical note frequencies (Hz)
+      const N = {
+        C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+        C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+        C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00
+      };
+
+      // 8-bar peaceful bedtime lofi chord sequence
+      const BGM_PATTERN = [
+        // Bar 1: Fmaj7
+        { bass: N.F3, dur: 3.2, notes: [
+          { f: N.C5, beat: 0, d: 1.8 }, { f: N.E5, beat: 0.8, d: 1.6 }, { f: N.A4, beat: 1.6, d: 1.8 }, { f: N.C5, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 2: G6
+        { bass: N.G3, dur: 3.2, notes: [
+          { f: N.B4, beat: 0, d: 1.8 }, { f: N.D5, beat: 0.8, d: 1.6 }, { f: N.G4, beat: 1.6, d: 1.8 }, { f: N.B4, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 3: Em7
+        { bass: N.E3, dur: 3.2, notes: [
+          { f: N.G4, beat: 0, d: 1.8 }, { f: N.B4, beat: 0.8, d: 1.6 }, { f: N.E5, beat: 1.6, d: 1.8 }, { f: N.D5, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 4: Am7
+        { bass: N.A3, dur: 3.2, notes: [
+          { f: N.C5, beat: 0, d: 1.8 }, { f: N.E5, beat: 0.8, d: 1.6 }, { f: N.G4, beat: 1.6, d: 1.8 }, { f: N.A4, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 5: Dm7
+        { bass: N.D3, dur: 3.2, notes: [
+          { f: N.F4, beat: 0, d: 1.8 }, { f: N.A4, beat: 0.8, d: 1.6 }, { f: N.C5, beat: 1.6, d: 1.8 }, { f: N.E5, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 6: Em7
+        { bass: N.E3, dur: 3.2, notes: [
+          { f: N.G4, beat: 0, d: 1.8 }, { f: N.B4, beat: 0.8, d: 1.6 }, { f: N.D5, beat: 1.6, d: 1.8 }, { f: N.G4, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 7: Fmaj7
+        { bass: N.F3, dur: 3.2, notes: [
+          { f: N.A4, beat: 0, d: 1.8 }, { f: N.C5, beat: 0.8, d: 1.6 }, { f: N.E5, beat: 1.6, d: 1.8 }, { f: N.A5, beat: 2.4, d: 1.6 }
+        ]},
+        // Bar 8: Gsus4 -> G
+        { bass: N.G3, dur: 3.2, notes: [
+          { f: N.D5, beat: 0, d: 1.8 }, { f: N.C5, beat: 0.8, d: 1.6 }, { f: N.B4, beat: 1.6, d: 2.0 }, { f: N.G4, beat: 2.4, d: 1.8 }
+        ]}
+      ];
+
+      const BEAT_SEC = 0.8; // ~75 BPM
+      const BAR_SEC = BEAT_SEC * 4; // 3.2s per bar
+      const LOOP_SEC = BAR_SEC * BGM_PATTERN.length; // 25.6s loop
+
+      function scheduleMusicLoop(startTime) {
+        if (!isMusicEnabled || !audioCtx) return;
+        BGM_PATTERN.forEach(function(bar, barIdx) {
+          const barTime = startTime + barIdx * BAR_SEC;
+          triggerBass(bar.bass, barTime, bar.dur * (BEAT_SEC / 0.8), 0.08);
+          bar.notes.forEach(function(n) {
+            const noteTime = barTime + n.beat * BEAT_SEC;
+            triggerTone(n.f, noteTime, n.d, 0.09);
+          });
+        });
+
+        const nextLoopTime = startTime + LOOP_SEC;
+        const timeUntilNext = (nextLoopTime - audioCtx.currentTime - 0.5) * 1000;
+        musicLoopTimeout = setTimeout(function() {
+          if (isMusicEnabled) scheduleMusicLoop(nextLoopTime);
+        }, Math.max(100, timeUntilNext));
+      }
+
+      function startMusic() {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        if (isMusicEnabled) return;
+        isMusicEnabled = true;
+        musicBtn.classList.add('active');
+        musicBtn.setAttribute('aria-label', 'ปิดเสียงดนตรีคลอ');
+        masterGain.gain.cancelScheduledValues(ctx.currentTime);
+        masterGain.gain.setValueAtTime(masterGain.gain.value, ctx.currentTime);
+        masterGain.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 1.2);
+        scheduleMusicLoop(ctx.currentTime + 0.1);
+      }
+
+      function stopMusic() {
+        if (!isMusicEnabled) return;
+        isMusicEnabled = false;
+        musicBtn.classList.remove('active');
+        musicBtn.setAttribute('aria-label', 'เปิดเสียงดนตรีคลอ');
+        if (musicLoopTimeout) clearTimeout(musicLoopTimeout);
+        if (audioCtx && masterGain) {
+          masterGain.gain.cancelScheduledValues(audioCtx.currentTime);
+          masterGain.gain.setValueAtTime(masterGain.gain.value, audioCtx.currentTime);
+          masterGain.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+        }
+      }
+
+      function toggleMusic() {
+        if (isMusicEnabled) {
+          stopMusic();
+        } else {
+          startMusic();
+        }
+      }
+
+      if (musicBtn) {
+        musicBtn.addEventListener('click', toggleMusic);
+      }
+
+      // Start music gently on first user interaction anywhere
+      function tryAutoStartOnGesture() {
+        if (!isMusicEnabled) {
+          startMusic();
+        }
+        window.removeEventListener('pointerdown', tryAutoStartOnGesture);
+        window.removeEventListener('keydown', tryAutoStartOnGesture);
+      }
+      window.addEventListener('pointerdown', tryAutoStartOnGesture);
+      window.addEventListener('keydown', tryAutoStartOnGesture);
+
+      // ---------- go ----------
+      // Make sure the Prompt webfont is actually loaded before the first rasterize,
+      // otherwise the very first message could be sampled from a fallback font.
+      if (document.fonts && document.fonts.load) {
+        Promise.race([
+          document.fonts.load("500 48px 'Prompt'").then(function () { return document.fonts.ready; }),
+          new Promise(function (resolve) { setTimeout(resolve, 800); }) // safety timeout
+        ]).then(function () { startMessage(0); });
+      } else {
+        startMessage(0);
+      }
+
+    })();
+  </script>
+</body>
+
+</html>
